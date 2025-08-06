@@ -6,7 +6,7 @@ import Login from './components/Auth/Login'
 import Register from './components/Auth/Register'
 import Dashboard from './components/Dashboard/Dashboard'
 import UserForm from './components/Form/UserForm'
-
+import SkillDashboard from './components/Dashboard/SkillDashboard'
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -72,6 +72,7 @@ function App() {
             path="/form" 
             element={session ? (!hasFilledForm ? <UserForm /> : <Navigate to="/dashboard" />) : <Navigate to="/login" />} 
           />
+          <Route path="/dashboard/skill/:slug" element={<SkillDashboard />} />
           <Route 
             path="/" 
             element={<Navigate to={session ? (hasFilledForm ? "/dashboard" : "/form") : "/login"} />} 
