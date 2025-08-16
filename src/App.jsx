@@ -4,9 +4,11 @@ import { supabase } from './lib/supabase'
 import Layout from './components/Layout/Layout'
 import Login from './components/Auth/Login'
 import Register from './components/Auth/Register'
+import AuthCallback from './components/Auth/AuthCallback'
 import Dashboard from './components/Dashboard/Dashboard'
 import UserForm from './components/Form/UserForm'
 import SkillDashboard from './components/Dashboard/SkillDashboard'
+import ProtectedRoute from './components/Auth/ProtectedRoute'
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -68,6 +70,9 @@ function App() {
             path="/dashboard" 
             element={session ? (hasFilledForm ? <Dashboard /> : <Navigate to="/form" />) : <Navigate to="/login" />} 
           />
+
+          <Route path="/auth/callback" element={<AuthCallback />} />
+
           <Route 
             path="/form" 
             element={session ? (!hasFilledForm ? <UserForm /> : <Navigate to="/dashboard" />) : <Navigate to="/login" />} 
@@ -77,6 +82,12 @@ function App() {
             path="/" 
             element={<Navigate to={session ? (hasFilledForm ? "/dashboard" : "/form") : "/login"} />} 
           />
+
+          <Route
+            path="/dashboard"
+            element={ <ProtectedRoute>  <Dashboard /> </ProtectedRoute> }
+          />
+
         </Routes>
       </Layout>
     </Router>
