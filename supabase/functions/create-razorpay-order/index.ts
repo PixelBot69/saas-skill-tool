@@ -45,7 +45,7 @@ serve(async (req: any) => {
     const safeReceipt = `rcpt_${skill_id}_${Date.now()}`.slice(0, 40)
 
     const orderData = {
-      amount: numAmount * 100,  // convert to paise
+      amount: numAmount ,  // convert to paise
       currency,
       receipt: safeReceipt,
       notes: {
