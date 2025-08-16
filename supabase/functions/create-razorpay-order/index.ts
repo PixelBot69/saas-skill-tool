@@ -1,114 +1,91 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+serve(async (req: any) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { amount, currency, skill_id, user_id } = await req.json()
+    const { amount, currency, skill_id, user_id, skill_name } = await req.json()
 
-    // Validate required fields
     if (!amount || !currency || !skill_id || !user_id) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Missing required fields' 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({ success: false, message: 'Missing required fields' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
-    const razorpayKeyId = Deno.env.get('RAZORPAY_KEY_ID')
-    const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET')
+    // Razorpay credentials
+    const razorpayKeyId = Deno.env.get('VITE_RAZORPAY_KEY_ID') 
+    const razorpayKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET') 
 
     if (!razorpayKeyId || !razorpayKeySecret) {
+      console.error('Razorpay credentials not configured')
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Razorpay configuration missing' 
-        }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({ success: false, message: 'Payment gateway configuration error' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
 
-    // Create basic auth header for Razorpay API
-    const auth = btoa(`${razorpayKeyId}:${razorpayKeySecret}`)
-
-    // Create Razorpay order
-    const orderData = {
-      amount: amount, // amount in paise
-      currency: currency,
-      receipt: `skill_${skill_id}_user_${user_id}_${Date.now()}`,
-      notes: {
-        skill_id: skill_id,
-        user_id: user_id,
-      },
+    // Validate & convert amount (Razorpay expects paise)
+    const numAmount = parseInt(amount)
+    if (isNaN(numAmount) || numAmount <= 0 || numAmount > 10000000) {
+      return new Response(
+        JSON.stringify({ success: false, message: 'Invalid amount' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      )
     }
 
-    const response = await fetch('https://api.razorpay.com/v1/orders', {
+    // Short receipt (max 40 chars)
+    const safeReceipt = `rcpt_${skill_id}_${Date.now()}`.slice(0, 40)
+
+    const orderData = {
+      amount: numAmount * 100,  // convert to paise
+      currency,
+      receipt: safeReceipt,
+      notes: {
+        skill_id,
+        user_id,
+        skill_name: skill_name || 'Learning Course',
+        platform: 'learning_platform'
+      }
+    }
+
+    const razorpayResponse = await fetch('https://api.razorpay.com/v1/orders', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        'Authorization': `Basic ${btoa(`${razorpayKeyId}:${razorpayKeySecret}`)}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(orderData),
     })
 
-    if (!response.ok) {
-      const error = await response.text()
-      console.error('Razorpay API error:', error)
+    if (!razorpayResponse.ok) {
+      const errorData = await razorpayResponse.text()
+      console.error('Razorpay API error:', errorData)
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: 'Failed to create Razorpay order',
-          error: error 
-        }),
-        { 
-          status: response.status, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+        JSON.stringify({ success: false, message: 'Razorpay error', details: errorData }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
 
-    const order = await response.json()
+    const order = await razorpayResponse.json()
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        order: order,
-      }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ success: true, order, key: razorpayKeyId, message: 'Order created successfully' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
 
   } catch (error) {
-    console.error('Error creating Razorpay order:', error)
+    console.error('Error in create-razorpay-order:', error)
     return new Response(
-      JSON.stringify({
-        success: false,
-        message: 'Internal server error',
-        error: error.message,
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      JSON.stringify({ success: false, message: 'Internal server error', error: String(error) }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }
 })

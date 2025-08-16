@@ -11,9 +11,12 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.51.0",
+    "crypto": "^1.0.1",
+    "razorpay": "^2.9.6",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.3"
+    "react-router-dom": "^7.6.3",
+    "supabase": "^2.33.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
